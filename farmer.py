@@ -150,24 +150,23 @@ class Farmer:
             poll_n += 1
             lvl = get_level()
             if lvl:
-                prog = lvl.get("progress_xp", 0)
+                prog    = lvl.get("progress_xp", 0)
                 to_next = lvl.get("xp_to_next_level", 0)
-                level = lvl.get("level", "?")
-                total = prog + to_next
-                pct = round(prog / total * 100, 1) if total else 0
+                level   = lvl.get("level", "?")
+                tick    = prog - last_xp if last_xp is not None else 0
                 since_start = prog - self.start_xp if self.start_xp is not None else 0
-                tick = prog - last_xp if last_xp is not None else 0
-                elapsed = (datetime.datetime.now() - self.session_start).seconds // 60
-                rate = round(since_start / elapsed, 1) if elapsed > 0 else "?"
-                log.info(
-                    f"[XP #{poll_n}] L{level} | {prog}/{total} XP ({pct}%) | "
-                    f"+{tick} ce poll | +{since_start} total | {rate} XP/min | "
-                    f"~{round((to_next - prog + prog) / (rate if isinstance(rate, float) and rate > 0 else 2), 0):.0f}min to L{level+1 if isinstance(level,int) else '?'}"
-                    if isinstance(rate, float) else
-                    f"[XP #{poll_n}] L{level} | {prog}/{total} XP ({pct}%) | +{tick} ce poll"
-                )
+                elapsed_min = max((datetime.datetime.now() - self.session_start).seconds / 60, 0.1)
+                rate    = since_start / elapsed_min  # XP/min
+                eta_min = round(to_next / rate) if rate > 0 else "?"
+
                 self.total_xp_gained += tick
                 last_xp = prog
+
+                log.info(
+                    f"+{tick} XP  |  {to_next} XP restants  |  "
+                    f"~{eta_min} min  (L{level} -> L{level+1 if isinstance(level,int) else '?'}  "
+                    f"|  +{since_start} total  |  {rate:.1f} XP/min)"
+                )
             else:
                 log.warning(f"[XP #{poll_n}] Pas de donnees (token expire?)")
 
