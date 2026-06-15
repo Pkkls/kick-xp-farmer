@@ -1,0 +1,13 @@
+{
+  "session_token": "VOTRE_SESSION_TOKEN_ICI",
+  "xp_poll_interval": 120,
+  "log_file": "farmer.log",
+  "slug_pool": [
+    "kaicenat", "xqc", "trainwreckstv", "adin", "filian", "nickeh30",
+    "hasanabi", "destiny", "amouranth", "dankquan", "caseoh", "tarik",
+    "symfuhny", "ronaldo", "bassem", "roshtein", "nolimitbro", "lacy",
+    "jynxzi", "rober", "suspxct", "dimasf6", "xposed", "n3on",
+    "fl0m", "lurkinlucas", "zuckles", "mikesmithtv", "thelegend27",
+    "bbcjb", "tee"
+  ]
+}
