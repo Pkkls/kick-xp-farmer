@@ -96,6 +96,42 @@ python parse_follows.py follows.txt --write-config config.json
 python farmer.py
 ```
 
+### 📊 Points Dashboard
+
+Un tableau de bord terminal (en anglais) qui liste tes chaînes **classées par
+points décroissants** — celles où tu as le plus de points en premier.
+
+```bash
+python dashboard.py            # récupère les points + menu interactif
+python dashboard.py --once     # affiche une fois et quitte
+python dashboard.py --cached   # affiche le dernier snapshot (sans réseau)
+python dashboard.py --live      # affiche aussi le statut live (+ de requêtes)
+```
+
+Aperçu :
+
+```
+                             KICK POINTS DASHBOARD
+
+ ╭──────┬───────────────┬──────┬──────────────┬──────────────────────────────╮
+ │    # │ Channel       │      │       Points │                              │
+ ├──────┼───────────────┼──────┼──────────────┼──────────────────────────────┤
+ │   🥇 │ kaicenat      │  ●   │       98 230 │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ │
+ │   🥈 │ xqc           │  ·   │       51 200 │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇               │
+ │   🥉 │ Trainwreckstv │  ·   │       22 010 │ ▇▇▇▇▇▇                        │
+ │    4 │ Destiny       │  ●   │       12 750 │ ▇▇▇▇                          │
+ ╰──────┴───────────────┴──────┴──────────────┴──────────────────────────────╯
+```
+
+- 🥇🥈🥉 pour le top 3, barres proportionnelles, séparateur de milliers.
+- Source des chaînes : `slug_pool` de `config.json`, sinon `following.json`.
+- Points lus via `GET /api/v2/channels/{slug}/me` (authentifié, `session_token`).
+- Menu : `r` refresh · `l` toggle live · `z` masquer les 0 point · `q` quitter.
+- Snapshot mis en cache dans `data/points.json` (`--cached` pour l'afficher hors-ligne).
+
+> Comme le farmer, à lancer depuis ta machine (IP résidentielle) — Cloudflare
+> bloque les IP datacenter/VPN.
+
 ### Utilisation en continu (24/7)
 
 #### Windows — via Task Scheduler
