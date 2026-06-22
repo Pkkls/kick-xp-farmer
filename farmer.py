@@ -21,15 +21,32 @@ def load_config():
 CFG = load_config()
 BEARER = urllib.parse.unquote(CFG["session_token"])
 
-# Streamers a checker (ordre = priorite). Pas de noms en dur imposés — modifiable dans config.
-DEFAULT_SLUGS = CFG.get("slug_pool", [
-    "kaicenat", "xqc", "trainwreckstv", "adin", "filian", "nickeh30",
-    "hasanabi", "destiny", "amouranth", "dankquan", "caseoh", "tarik",
-    "symfuhny", "ronaldo", "bassem", "roshtein", "nolimitbro", "lacy",
-    "jynxzi", "rober", "suspxct", "dimasf6", "xposed", "n3on",
-    "fl0m", "lurkinlucas", "zuckles", "mikesmithtv", "thelegend27",
-    "bbcjb", "tee",
-])
+# Streamers a checker (ordre = priorite). Source, par ordre de priorite :
+#   1. "slug_pool" dans config.json
+#   2. following.json (genere par parse_follows.py / fetch_follows.py : TOUS tes follows)
+#   3. liste par defaut en dur
+def _load_slug_pool():
+    if CFG.get("slug_pool"):
+        return CFG["slug_pool"]
+    follows_file = os.path.join(os.path.dirname(__file__), "following.json")
+    if os.path.exists(follows_file):
+        try:
+            with open(follows_file, encoding="utf-8") as f:
+                data = json.load(f)
+            if isinstance(data, list) and data:
+                return data
+        except (json.JSONDecodeError, OSError):
+            pass
+    return [
+        "kaicenat", "xqc", "trainwreckstv", "adin", "filian", "nickeh30",
+        "hasanabi", "destiny", "amouranth", "dankquan", "caseoh", "tarik",
+        "symfuhny", "ronaldo", "bassem", "roshtein", "nolimitbro", "lacy",
+        "jynxzi", "rober", "suspxct", "dimasf6", "xposed", "n3on",
+        "fl0m", "lurkinlucas", "zuckles", "mikesmithtv", "thelegend27",
+        "bbcjb", "tee",
+    ]
+
+DEFAULT_SLUGS = _load_slug_pool()
 
 PUSHER_KEY  = "32cbd69e4b950bf97679"
 PUSHER_WS   = f"wss://ws-us2.pusher.com/app/{PUSHER_KEY}?protocol=7&client=js&version=8.5.0&flash=false"

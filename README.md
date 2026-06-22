@@ -57,11 +57,80 @@ cp config.example.json config.json
 - **`xp_poll_interval`** : secondes entre chaque check XP (défaut: 120)
 - **`slug_pool`** : liste des streamers à checker pour trouver un stream live (ordre = priorité)
 
+#### 2 bis. Tracker TOUS tes follows (live **et** offline)
+
+Plutôt que de saisir `slug_pool` à la main, génère-le depuis **tes propres follows**.
+Deux méthodes (le farmer lit automatiquement `following.json` si `slug_pool` est absent) :
+
+**Méthode A — automatique (recommandée), via l'API Kick :**
+
+```bash
+# Utilise le session_token de ton config.json (le même que le farmer)
+python fetch_follows.py -o following.json
+```
+
+Récupère la liste **complète** (live + offline), avec les vrais slugs, pour
+n'importe quel compte — aucune manip manuelle.
+
+**Méthode B — copier-coller (sans API) :**
+
+1. Va sur [`kick.com/following/channels`](https://kick.com/following/channels)
+2. Scrolle tout en bas jusqu'à ce que plus rien ne charge (lazy-load)
+3. `Ctrl+A` puis `Ctrl+C`, colle dans `follows.txt`
+4. Nettoie le tout (doublons + mots parasites d'UI) :
+
+```bash
+python parse_follows.py follows.txt -o following.json
+```
+
+Les deux scripts savent aussi écrire directement dans la config :
+
+```bash
+python fetch_follows.py --write-config config.json   # remplit "slug_pool"
+python parse_follows.py follows.txt --write-config config.json
+```
+
 #### 3. Lancer
 
 ```bash
 python farmer.py
 ```
+
+### 📊 Points Dashboard
+
+Un tableau de bord terminal (en anglais) qui liste tes chaînes **classées par
+points décroissants** — celles où tu as le plus de points en premier.
+
+```bash
+python dashboard.py            # récupère les points + menu interactif
+python dashboard.py --once     # affiche une fois et quitte
+python dashboard.py --cached   # affiche le dernier snapshot (sans réseau)
+python dashboard.py --live      # affiche aussi le statut live (+ de requêtes)
+```
+
+Aperçu :
+
+```
+                             KICK POINTS DASHBOARD
+
+ ╭──────┬───────────────┬──────┬──────────────┬──────────────────────────────╮
+ │    # │ Channel       │      │       Points │                              │
+ ├──────┼───────────────┼──────┼──────────────┼──────────────────────────────┤
+ │   🥇 │ kaicenat      │  ●   │       98 230 │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇ │
+ │   🥈 │ xqc           │  ·   │       51 200 │ ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇               │
+ │   🥉 │ Trainwreckstv │  ·   │       22 010 │ ▇▇▇▇▇▇                        │
+ │    4 │ Destiny       │  ●   │       12 750 │ ▇▇▇▇                          │
+ ╰──────┴───────────────┴──────┴──────────────┴──────────────────────────────╯
+```
+
+- 🥇🥈🥉 pour le top 3, barres proportionnelles, séparateur de milliers.
+- Source des chaînes : `slug_pool` de `config.json`, sinon `following.json`.
+- Points lus via `GET /api/v2/channels/{slug}/me` (authentifié, `session_token`).
+- Menu : `r` refresh · `l` toggle live · `z` masquer les 0 point · `q` quitter.
+- Snapshot mis en cache dans `data/points.json` (`--cached` pour l'afficher hors-ligne).
+
+> Comme le farmer, à lancer depuis ta machine (IP résidentielle) — Cloudflare
+> bloque les IP datacenter/VPN.
 
 ### Utilisation en continu (24/7)
 
