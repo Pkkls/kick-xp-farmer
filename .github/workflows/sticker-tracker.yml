@@ -1,0 +1,54 @@
+name: CS2 Sticker Tracker
+
+# Traque le prix des stickers (Steam Market) et envoie un rapport Telegram.
+# NB: les workflows planifiés (schedule) ne tournent que depuis la branche par
+# defaut du repo. Une fois la PR mergee, le cron s'activera automatiquement.
+# En attendant, tu peux lancer le tracker a la main via "Run workflow".
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # toutes les 6 heures
+  workflow_dispatch:         # bouton "Run workflow" manuel
+
+# Necessaire pour committer l'historique des prix dans le repo
+permissions:
+  contents: write
+
+concurrency:
+  group: sticker-tracker
+  cancel-in-progress: false
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sticker-tracker
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run tracker
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          STICKER_CURRENCY: ${{ vars.STICKER_CURRENCY }}
+        run: python tracker.py
+
+      - name: Commit price history
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain data)" ]; then
+            git add data
+            git commit -m "chore: update sticker price history [skip ci]"
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          else
+            echo "Aucun changement de prix a committer."
+          fi

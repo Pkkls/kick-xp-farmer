@@ -1,0 +1,2 @@
+# Aucune dépendance externe : tracker.py n'utilise que la lib standard Python (urllib).
+# Fichier conservé pour compatibilité CI / installations futures.

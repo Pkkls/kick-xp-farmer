@@ -1,0 +1,9 @@
+{
+  "telegram_bot_token": "METS_TON_TOKEN_ICI_OU_VIA_ENV",
+  "telegram_chat_id": "TON_CHAT_ID",
+  "currency": "EUR",
+  "alert_threshold_pct": 5.0,
+  "send_mode": "always",
+  "request_delay": 3.0,
+  "max_retries": 4
+}
