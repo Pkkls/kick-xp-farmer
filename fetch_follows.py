@@ -56,22 +56,24 @@ def _headers(bearer):
 def _get_json(sess, url, headers, timeout=15):
     if _USE_CFFI:
         r = sess.get(url, headers=headers, timeout=timeout)
+        body = r.text
         if r.status_code != 200:
-            return None, r.status_code
+            return None, r.status_code, body
         try:
-            return r.json(), 200
+            return r.json(), 200, body
         except Exception:
-            return None, r.status_code
+            return None, r.status_code, body
     else:
         import urllib.request, urllib.error
         req = urllib.request.Request(url, headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
-                return json.loads(resp.read().decode("utf-8", "replace")), 200
+                body = resp.read().decode("utf-8", "replace")
+                return json.loads(body), 200, body
         except urllib.error.HTTPError as e:
-            return None, e.code
+            return None, e.code, e.read().decode("utf-8", "replace")
         except Exception:
-            return None, 0
+            return None, 0, ""
 
 
 def _harvest_slugs(node, out, seen):
@@ -110,42 +112,55 @@ def fetch_follows(bearer, max_pages=200, delay=0.8, verbose=True):
             pass
 
     out, seen = [], set()
+    first_payload = None
     # L'API a connu plusieurs schemas de pagination : on tente cursor puis page.
     for scheme in ("cursor", "page"):
         empty_streak = 0
         for i in range(max_pages):
             base = "https://kick.com/api/v2/channels/followed"
             url = f"{base}?{scheme}={i}"
-            data, status = _get_json(sess, url, headers)
-            if status == 401 or status == 403:
-                sys.exit(f"[err] non authentifie (HTTP {status}). "
-                         f"session_token invalide ou expire.")
+            data, status, body = _get_json(sess, url, headers)
+            if status in (401, 403):
+                if "security policy" in (body or "").lower():
+                    sys.exit(
+                        "[err] Requete bloquee par Cloudflare (HTTP 403 'security policy').\n"
+                        "       -> Lance ce script depuis TA machine (IP residentielle), pas\n"
+                        "          depuis un serveur/VPN/cloud. C'est la meme contrainte que le farmer.\n"
+                        "       -> Sinon, utilise parse_follows.py (copier-coller, sans API).")
+                sys.exit(f"[err] non authentifie (HTTP {status}). session_token invalide ou expire.")
             if data is None:
-                # endpoint v2 indispo -> tente v1 une fois
-                if i == 0 and scheme == "cursor":
-                    data, status = _get_json(
+                if i == 0 and scheme == "cursor":  # v2 indispo -> tente v1
+                    data, status, body = _get_json(
                         sess, f"https://kick.com/api/v1/channels/followed?{scheme}={i}", headers)
                 if data is None:
                     break
+            if first_payload is None:
+                first_payload = data
             before = len(out)
             _harvest_slugs(data, out, seen)
             gained = len(out) - before
             if verbose:
                 sys.stderr.write(f"[{scheme} {i}] +{gained} (total {len(out)})\n")
-            # Conditions d'arret
             if gained == 0:
                 empty_streak += 1
                 if empty_streak >= 2:
                     break
             else:
                 empty_streak = 0
-            # Fin de pagination explicite
-            if isinstance(data, dict):
-                if data.get("next_cursor") in (None, "", 0) and "next_cursor" in data:
-                    break
+            if isinstance(data, dict) and "next_cursor" in data and data.get("next_cursor") in (None, "", 0):
+                break
             time.sleep(delay)
         if out:
             break  # un schema a fonctionne, inutile d'essayer l'autre
+
+    # Aide au debug si rien trouve mais reponse recue (schema JSON inattendu)
+    if not out and first_payload is not None:
+        keys = list(first_payload.keys()) if isinstance(first_payload, dict) else f"liste[{len(first_payload)}]"
+        sys.stderr.write(
+            f"[warn] 0 chaine extraite mais reponse recue. Structure JSON inattendue.\n"
+            f"       Cles racine: {keys}\n"
+            f"       Colle-moi ce JSON (debut) pour que j'adapte l'extraction:\n"
+            f"       {json.dumps(first_payload, ensure_ascii=False)[:500]}\n")
     return out
 
 
