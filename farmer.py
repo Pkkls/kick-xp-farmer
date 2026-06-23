@@ -5,6 +5,7 @@ kick-xp-farmer  —  Accumule du XP Kick en idle
 Mechanism: subscription Pusher private-livestream.{id} avec Bearer token
 """
 import json, time, threading, urllib.parse, datetime, sys, os, signal, logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from curl_cffi import requests as cffi_requests
 import websocket
 
@@ -21,9 +22,9 @@ def load_config():
 CFG = load_config()
 BEARER = urllib.parse.unquote(CFG["session_token"])
 
-# Streamers a checker (ordre = priorite). Source, par ordre de priorite :
+# Fallback slugs si followed-page ne donne rien. Ordre de priorite :
 #   1. "slug_pool" dans config.json
-#   2. following.json (genere par parse_follows.py / fetch_follows.py : TOUS tes follows)
+#   2. following.json (genere par fetch_follows.py : TOUS tes follows)
 #   3. liste par defaut en dur
 def _load_slug_pool():
     if CFG.get("slug_pool"):
@@ -46,7 +47,7 @@ def _load_slug_pool():
         "bbcjb", "tee",
     ]
 
-DEFAULT_SLUGS = _load_slug_pool()
+FALLBACK_SLUGS = _load_slug_pool()
 
 PUSHER_KEY  = "32cbd69e4b950bf97679"
 PUSHER_WS   = f"wss://ws-us2.pusher.com/app/{PUSHER_KEY}?protocol=7&client=js&version=8.5.0&flash=false"
@@ -101,25 +102,56 @@ def get_level():
         log.debug(f"get_level error: {e}")
     return None
 
-def find_live_stream(slugs=None):
-    """Cherche le premier stream live dans la pool. Retourne dict ou None."""
-    pool = slugs or DEFAULT_SLUGS
-    for slug in pool:
-        try:
-            r = SESSION.get(f"https://kick.com/api/v1/channels/{slug}", headers=HEADERS, timeout=8)
-            if r.status_code == 200:
-                d = r.json()
-                ls = d.get("livestream")
-                if ls:
-                    chatroom_id = (d.get("chatroom") or {}).get("id")
-                    return {
-                        "id": ls["id"],
-                        "slug": slug,
-                        "chatroom_id": chatroom_id,
-                        "viewers": ls.get("viewer_count", 0),
-                    }
-        except Exception:
-            pass
+def _channel_details(slug):
+    """Retourne les détails d'un channel si en live, sinon None."""
+    try:
+        r = SESSION.get(f"https://kick.com/api/v1/channels/{slug}", headers=HEADERS, timeout=8)
+        if r.status_code == 200:
+            d = r.json()
+            ls = d.get("livestream")
+            if ls:
+                return {
+                    "id": ls["id"],
+                    "slug": slug,
+                    "chatroom_id": (d.get("chatroom") or {}).get("id"),
+                    "viewers": ls.get("viewer_count", 0),
+                }
+    except Exception:
+        pass
+    return None
+
+def find_live_stream(exclude_slug=None):
+    """Cherche un stream live via les channels suivis, puis fallback slug pool."""
+    # 1) Channels suivis — un seul appel, liste directe avec is_live
+    try:
+        r = SESSION.get("https://kick.com/api/v2/channels/followed-page", headers=HEADERS, timeout=10)
+        if r.status_code == 200:
+            channels = r.json().get("channels", [])
+            live = [c for c in channels if isinstance(c, dict) and c.get("is_live")
+                    and c.get("channel_slug") != exclude_slug]
+            if live:
+                # Trie par viewers décroissant, prend le premier
+                live.sort(key=lambda c: c.get("viewer_count", 0), reverse=True)
+                slug = live[0]["channel_slug"]
+                stream = _channel_details(slug)
+                if stream:
+                    return stream
+    except Exception as e:
+        log.debug(f"followed-page error: {e}")
+
+    # 2) Fallback: pool custom configurée dans config.json
+    pool = [s for s in FALLBACK_SLUGS if s != exclude_slug]
+    if not pool:
+        return None
+    log.debug(f"Fallback: scan {len(pool)} slugs...")
+    with ThreadPoolExecutor(max_workers=10) as ex:
+        futures = {ex.submit(_channel_details, s): s for s in pool}
+        for fut in as_completed(futures):
+            result = fut.result()
+            if result:
+                for f in futures:
+                    f.cancel()
+                return result
     return None
 
 def pusher_auth(socket_id, channel_name):
@@ -259,8 +291,7 @@ class Farmer:
         log.info("Stream hors ligne, rotation...")
         # Exclut le slug actuel pour ne pas re-essayer immediatement
         current_slug = self.stream.get("slug") if self.stream else None
-        pool = [s for s in DEFAULT_SLUGS if s != current_slug]
-        new_stream = find_live_stream(pool)
+        new_stream = find_live_stream(exclude_slug=current_slug)
         if new_stream:
             log.info(f"Nouveau stream: {new_stream['slug']} (id={new_stream['id']})")
             self.stream = new_stream

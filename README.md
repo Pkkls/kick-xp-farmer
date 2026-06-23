@@ -10,6 +10,29 @@ Accumule du XP Kick en idle 24/7.
 
 **Taux constaté empiriquement : ~2 XP/min (~4 XP toutes les 2 min)**
 
+> ### 🚀 Launcher Points multi-compte (`launcher.py`)
+> L'XP est global, mais les **Channel Points** sont liés à un channel et ne se
+> créditent qu'avec une vraie lecture vidéo non-mutée. `launcher.py` pilote ça à
+> l'échelle : un compte = un worker isolé (son Chrome, ses cookies, son channel).
+>
+> ```bash
+> pip install -r requirements.txt
+> playwright install chromium
+> python launcher.py            # dashboard -> http://127.0.0.1:8780
+> ```
+>
+> - **Solo** : ajoute 1 compte (colle ses cookies), choisis un channel, il farm.
+> - **Scale** : ajoute N comptes. Le superviseur plafonne les Chrome simultanés
+>   (`max_concurrent`), démarre en escalier, **fait tourner** (rotation) si tu as
+>   plus de comptes que de slots, **relance** les workers qui crashent (backoff +
+>   quarantaine), et garde-fou la RAM (`mem_floor_mb`).
+> - Tout est local (cookies/tokens gitignorés, dashboard `127.0.0.1`, Job Object
+>   Windows = aucun Chrome orphelin même si le launcher est tué brutalement).
+> - Outil non affilié à Kick — l'automatisation multi-compte peut enfreindre les CGU.
+>
+> Variante console pour le mono-compte : `python points_ui.py --menu`. Vue des
+> soldes sur tous tes follows : `python dashboard.py`.
+
 ### Mécanisme
 
 Kick attribue du XP en fonction du temps de visionnage de streams. Le serveur côté Kick suit les utilisateurs authentifiés qui sont **abonnés au canal Pusher privé** `private-livestream.{id}` d'un stream en cours. Ce script reproduit ce comportement sans navigateur :
@@ -72,22 +95,10 @@ python fetch_follows.py -o following.json
 Récupère la liste **complète** (live + offline), avec les vrais slugs, pour
 n'importe quel compte — aucune manip manuelle.
 
-**Méthode B — copier-coller (sans API) :**
-
-1. Va sur [`kick.com/following/channels`](https://kick.com/following/channels)
-2. Scrolle tout en bas jusqu'à ce que plus rien ne charge (lazy-load)
-3. `Ctrl+A` puis `Ctrl+C`, colle dans `follows.txt`
-4. Nettoie le tout (doublons + mots parasites d'UI) :
-
-```bash
-python parse_follows.py follows.txt -o following.json
-```
-
-Les deux scripts savent aussi écrire directement dans la config :
+Le script sait aussi écrire directement dans la config :
 
 ```bash
 python fetch_follows.py --write-config config.json   # remplit "slug_pool"
-python parse_follows.py follows.txt --write-config config.json
 ```
 
 #### 3. Lancer

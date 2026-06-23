@@ -86,24 +86,6 @@ def _headers(bearer):
     return h
 
 
-def _find_int(node, key):
-    """Recursively find the first int value stored under `key`."""
-    if isinstance(node, dict):
-        for k, v in node.items():
-            if k == key and isinstance(v, (int, float)) and not isinstance(v, bool):
-                return int(v)
-        for v in node.values():
-            r = _find_int(v, key)
-            if r is not None:
-                return r
-    elif isinstance(node, list):
-        for v in node:
-            r = _find_int(v, key)
-            if r is not None:
-                return r
-    return None
-
-
 class Blocked(Exception):
     pass
 
@@ -124,19 +106,24 @@ def _get(session, url, headers, timeout=12):
             return 0, ""
 
 
-def fetch_channel(slug, bearer, want_live=False):
+def fetch_channel(slug, bearer, session=None, want_live=False):
     """Returns {'slug','points','live'}. points=None if unknown."""
-    session = _cffi.Session(impersonate="chrome136") if _USE_CFFI else None
+    # IMPORTANT: reutiliser UNE session partagee (passee par fetch_all). Creer une
+    # session neuve par channel = autant de handshakes TLS en rafale -> Cloudflare
+    # bloque (403 'security policy') et les points repassent en n/a.
+    if session is None and _USE_CFFI:
+        session = _cffi.Session(impersonate="chrome136")
     headers = _headers(bearer)
     rec = {"slug": slug, "points": None, "live": None}
 
-    status, body = _get(session, f"https://kick.com/api/v2/channels/{slug}/me", headers)
+    # Le solde de points est sur /points ({"data":{"points":N}}), PAS sur /me
+    # (qui ne contient que subscription/following/leaderboards, aucun champ points).
+    status, body = _get(session, f"https://kick.com/api/v2/channels/{slug}/points", headers)
     if status in (401, 403) and "security policy" in body.lower():
         raise Blocked()
     if status == 200:
         try:
-            data = json.loads(body)
-            rec["points"] = _find_int(data, "points")
+            rec["points"] = (json.loads(body).get("data") or {}).get("points")
         except json.JSONDecodeError:
             pass
 
@@ -152,6 +139,15 @@ def fetch_channel(slug, bearer, want_live=False):
 
 def fetch_all(channels, bearer, want_live, workers=8):
     results, blocked = [], False
+    # Une seule session partagee + warmup Cloudflare (recupere les cookies __cf_bm),
+    # comme le farmer. Evite les 403 'security policy' qui mettaient tout en n/a.
+    sess = None
+    if _USE_CFFI:
+        sess = _cffi.Session(impersonate="chrome136")
+        try:
+            sess.get("https://kick.com/", headers={**_headers(bearer), "Accept": "text/html"}, timeout=15)
+        except Exception:
+            pass
     with Progress(
         SpinnerColumn(), TextColumn("[progress.description]{task.description}"),
         BarColumn(), TextColumn("{task.completed}/{task.total}"),
@@ -159,7 +155,7 @@ def fetch_all(channels, bearer, want_live, workers=8):
     ) as progress:
         task = progress.add_task("Fetching points…", total=len(channels))
         with ThreadPoolExecutor(max_workers=workers) as ex:
-            futs = {ex.submit(fetch_channel, c, bearer, want_live): c for c in channels}
+            futs = {ex.submit(fetch_channel, c, bearer, sess, want_live): c for c in channels}
             for fut in as_completed(futs):
                 try:
                     results.append(fut.result())
@@ -173,7 +169,7 @@ def fetch_all(channels, bearer, want_live, workers=8):
         console.print(Panel(
             "[bold red]Kick blocked some requests (Cloudflare 'security policy').[/]\n"
             "Run this from your own machine (residential IP) — same as the farmer.",
-            border_style="red", title="⚠  Blocked"))
+            border_style="red", title="[!] Blocked"))
     return results
 
 
@@ -278,7 +274,7 @@ def main():
         console.print(Panel(
             "[bold red]No session_token in config.json.[/]\n"
             "Add it (see config.example.json) to read your channel points.",
-            border_style="red", title="⚠  Missing token"))
+            border_style="red", title="[!] Missing token"))
         return
 
     def refresh(live):

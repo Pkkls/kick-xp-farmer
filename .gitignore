@@ -1,8 +1,13 @@
 config.json
+kick_cookies.json
+following.json
+follow.txt
+accounts.json
+accounts/
+.ready
 *.log
 __pycache__/
 *.pyc
 .venv/
 venv/
 data/
-kick_cookies.json
