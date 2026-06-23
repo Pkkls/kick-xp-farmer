@@ -17,6 +17,9 @@ tokens never leave your machine.
 
 ---
 
+<img width="944" height="609" alt="image" src="https://github.com/user-attachments/assets/217a2129-140e-4d65-9733-0ac78a53b557" />
+
+
 ## Why a real browser?
 
 Two different reward systems on Kick, two different mechanisms:
