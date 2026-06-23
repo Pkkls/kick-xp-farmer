@@ -18,6 +18,7 @@ tokens never leave your machine.
 ---
 
 <img width="944" height="609" alt="image" src="https://github.com/user-attachments/assets/217a2129-140e-4d65-9733-0ac78a53b557" />
+<img width="945" height="548" alt="image" src="https://github.com/user-attachments/assets/ef0e5b77-9269-43da-870b-6e2a62fb4c9b" />
 
 
 ## Why a real browser?
