@@ -29,6 +29,8 @@ import accounts as acc
 HERE = os.path.dirname(os.path.abspath(__file__))
 CFG = json.load(open(os.path.join(HERE, "config.json"), encoding="utf-8"))
 FARMER = os.path.join(HERE, "points_farmer.py")
+XP_FARMER = os.path.join(HERE, "farmer.py")          # XP par compte : choisit seul un stream live
+XP_STATE_FILE = os.path.join(HERE, "data", "xp_enabled.json")   # set persiste des comptes XP actifs
 LOGS_DIR = os.path.join(HERE, "accounts")
 
 PORT        = int(CFG.get("launcher_port", 8780))
@@ -51,6 +53,7 @@ _points = {}       # acc_id -> {channel, start, points, ts}
 _hist = {}         # acc_id -> deque[int]  (derniers soldes, pour la sparkline)
 _events = deque(maxlen=80)   # flux d'activite (le plus recent en tete)
 _login = {"active": False, "status": "idle", "msg": "", "label": ""}   # flux "Log in with Kick"
+_xp_workers = {}   # acc_id -> {proc, job, started}  (un farmer.py XP par compte)
 _wlock = threading.Lock()
 _start_ts = time.time()
 _shutdown = threading.Event()
@@ -194,6 +197,105 @@ def _stop(aid):
         _kill(w)
 
 
+# ── XP Farmer par compte (un farmer.py par compte, choisit seul un stream live) ─
+# Chaque worker farme le XP du compte (token via env). farmer.py ecrit son etat
+# (stream live selectionne, level, XP/min) dans accounts/<id>.xp.json -> l'UI sait
+# exactement quel stream chaque compte regarde. Aucun choix de streamer (auto live).
+def _xp_enabled_set():
+    try:
+        return set(json.load(open(XP_STATE_FILE, encoding="utf-8")))
+    except Exception:
+        return set()
+
+
+def _xp_save_enabled(s):
+    os.makedirs(os.path.dirname(XP_STATE_FILE), exist_ok=True)
+    tmp = XP_STATE_FILE + ".tmp"
+    json.dump(sorted(s), open(tmp, "w", encoding="utf-8"))
+    os.replace(tmp, XP_STATE_FILE)
+
+
+def _xp_status_file(aid):
+    return os.path.join(LOGS_DIR, f"{aid}.xp.json")
+
+
+def _xp_read_status(aid):
+    try:
+        return json.load(open(_xp_status_file(aid), encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _xp_running(aid):
+    w = _xp_workers.get(aid)
+    p = w and w.get("proc")
+    return bool(p and p.poll() is None)
+
+
+def _xp_launch(account):
+    aid = account["id"]
+    bearer = acc.bearer_of(account)
+    if not bearer:
+        _emit("xp", account.get("label", aid), "no token (re-import account)")
+        return False
+    os.makedirs(LOGS_DIR, exist_ok=True)
+    env = dict(os.environ, XP_BEARER=bearer,
+               XP_LOG_FILE=os.path.join(LOGS_DIR, f"{aid}.xp.log"),
+               XP_STATUS_FILE=_xp_status_file(aid),
+               XP_LABEL=account.get("label", aid))
+    proc = subprocess.Popen([sys.executable, "-u", XP_FARMER], cwd=HERE, env=env,
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    _xp_workers[aid] = {"proc": proc, "job": _make_job(proc.pid), "started": time.time()}
+    return True
+
+
+def _xp_stop(aid):
+    w = _xp_workers.pop(aid, None)
+    if w:
+        _kill(w)
+
+
+def _xp_set(aid, on):
+    label = (acc.get(acc.load_accounts(), aid) or {}).get("label", aid)
+    with _wlock:
+        s = _xp_enabled_set()
+        if on:
+            s.add(aid)
+            a = acc.get(acc.load_accounts(), aid)
+            if a and not _xp_running(aid):
+                _xp_launch(a)
+        else:
+            s.discard(aid)
+            _xp_stop(aid)
+        _xp_save_enabled(s)
+    _emit("xp", label, "XP farming started" if on else "XP farming stopped")
+
+
+def _xp_set_all(on):
+    for a in acc.load_accounts():
+        _xp_set(a["id"], on)
+
+
+def _xp_state(accounts):
+    """Etat XP par compte pour l'UI : on/running + statut (stream live, level, XP/min)."""
+    enabled = _xp_enabled_set()
+    rows, run_n = [], 0
+    for a in accounts:
+        aid = a["id"]
+        on = aid in enabled
+        run = _xp_running(aid)
+        run_n += 1 if run else 0
+        st = _xp_read_status(aid) if (on or run) else {}
+        w = _xp_workers.get(aid, {})
+        rows.append({
+            "id": aid, "label": a.get("label", aid), "avatar": a.get("avatar"),
+            "on": on, "running": run,
+            "uptime": int(time.time() - w["started"]) if run and w.get("started") else 0,
+            "status": st,
+        })
+    return {"accounts": rows, "enabled": len(enabled), "running": run_n}
+
+
 def _window(enabled):
     """Sous-ensemble des comptes a faire tourner maintenant (rotation si besoin)."""
     ids = [a["id"] for a in enabled]
@@ -259,6 +361,15 @@ def supervisor():
     while not _shutdown.wait(STAGGER):
         try:
             reconcile()
+            # keepalive XP : relance le farmer.py d'un compte s'il a crash (loop de lancer.bat)
+            enabled = _xp_enabled_set()
+            if enabled:
+                accs = {a["id"]: a for a in acc.load_accounts()}
+                for aid in enabled:
+                    if aid in accs and not _xp_running(aid):
+                        with _wlock:
+                            if aid in _xp_enabled_set() and not _xp_running(aid):
+                                _xp_launch(accs[aid])
         except Exception:
             pass
 
@@ -356,6 +467,7 @@ def state():
                    "points": pts_total, "session": sess_total},
         "config": {"max_concurrent": MAX_CONC, "rotate_minutes": ROTATE_MIN,
                    "slots_used": min(run_n, MAX_CONC)},
+        "xp": _xp_state(accounts),
         "system": _system(),
         "events": [{"ts": e["ts"], "kind": e["kind"], "label": e["label"], "msg": e["msg"]}
                    for e in list(_events)[:40]],
@@ -637,6 +749,16 @@ class H(BaseHTTPRequestHandler):
                 _emit("control", "All", "started all accounts")
             acc.save_accounts(accs)
             return self._send(200, json.dumps({"ok": True}))
+        if self.path == "/api/xp":
+            action = body.get("action")
+            if action in ("start_all", "stop_all"):
+                _xp_set_all(action == "start_all")
+            else:
+                aid = body.get("id")
+                if not aid:
+                    return self._send(400, json.dumps({"error": "id required"}))
+                _xp_set(aid, action == "start")
+            return self._send(200, json.dumps({"ok": True}))
         self._send(404, "{}")
 
     def log_message(self, *a):
@@ -659,6 +781,8 @@ def main():
     finally:
         _shutdown.set()
         with _wlock:
+            for aid in list(_xp_workers):
+                _xp_stop(aid)
             for aid in list(_workers):
                 _stop(aid)
         srv.server_close()

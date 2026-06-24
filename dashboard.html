@@ -186,6 +186,28 @@ input,select{font:inherit}
 .soon-box{text-align:center;padding:80px 20px;color:var(--txt2)}
 .soon-box .e-ic{background:var(--surface);border:1px solid var(--line);color:var(--txt3)}
 .soon-box h3{font-size:19px;color:var(--txt);margin:0 0 8px;font-family:var(--font-d)}.soon-box p{max-width:440px;margin:0 auto}
+.xp-top{display:flex;flex-wrap:wrap;align-items:center;gap:14px;justify-content:space-between;margin-bottom:22px}
+.xp-note{display:flex;align-items:center;gap:10px;color:var(--txt2);font-size:13px;max-width:560px;margin:0;line-height:1.5}
+.xp-note b{color:var(--txt)}
+.xp-actions{display:flex;gap:10px;flex-wrap:wrap}
+.xp-all{font-size:13.5px;padding:10px 16px}
+.xpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:18px}
+.xpcard{display:flex;flex-direction:column}
+.xp-body{margin:18px 0 16px;min-height:64px}
+.xp-stream{display:flex;align-items:center;gap:11px}
+.xp-stream .tv{color:var(--accent-soft);flex:none}
+.xp-stream.off .tv{color:var(--txt3)}
+.xp-stream .slug{font-family:var(--font-d);font-size:26px;font-weight:700;letter-spacing:-1px;color:var(--txt);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+a.slug:hover{color:var(--accent-soft)}
+.xp-stream.off .slug{color:var(--txt3);font-size:22px}
+.xp-sub{color:var(--txt3);font-size:12px;margin-top:6px;padding-left:33px}
+.xp-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:16px}
+.xp-stats .cap{color:var(--txt3);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.xp-stats .v{font-family:var(--font-d);font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.xp-btn{margin-top:auto;display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:14px;border-radius:var(--r-sm);font-size:15px;font-weight:700;cursor:pointer;border:1px solid var(--accent);background:var(--accent);color:#06250a;transition:.15s var(--ease)}
+.xp-btn:hover{filter:brightness(1.08)}.xp-btn:active{transform:scale(.985)}
+.xp-btn.on{background:transparent;color:var(--txt2);border-color:var(--line2)}
+.xp-btn.on:hover{color:var(--red);border-color:rgba(255,93,87,.5);background:rgba(255,93,87,.07);filter:none}
 .panel{background:linear-gradient(180deg,var(--surface),var(--bg2));border:1px solid var(--line);border-radius:var(--r-lg);padding:24px;max-width:640px;box-shadow:var(--hi),var(--sh-sm),var(--sh-md)}
 .panel h3{margin:0 0 4px;font-size:15px;font-family:var(--font-d)}.panel .hint{color:var(--txt2);font-size:12.5px;margin:0 0 18px}
 .cfg{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid var(--line)}
@@ -287,7 +309,7 @@ details.adv[open] summary::before{content:"▾ "}
     <nav class="nav" id="nav" aria-label="Tools">
       <a href="#launcher" class="active" data-view="launcher" aria-current="page" data-title="Points Launcher" data-sub="Multi-account Channel Points farming">
         <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></span><span>Launcher</span></a>
-      <a href="#xp" class="soon" data-view="xp" data-title="XP Farmer" data-sub="Idle global XP farming">
+      <a href="#xp" data-view="xp" data-title="XP Farmer" data-sub="Idle global XP farming">
         <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg></span><span>XP Farmer</span></a>
       <a href="#points" class="soon" data-view="points" data-title="Points Overview" data-sub="Points balance across all your follows">
         <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></span><span>Points</span></a>
@@ -342,7 +364,18 @@ details.adv[open] summary::before{content:"▾ "}
         <div class="grid" id="grid"></div>
       </section>
 
-      <section class="view" id="view-xp"><div class="soon-box"><div class="e-ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg></div><h3>XP Farmer</h3><p>The global XP farmer (farmer.py) will be controllable here: start/stop, level &amp; XP/min tracking, stream rotation.</p></div></section>
+      <section class="view" id="view-xp">
+        <div class="xp-top">
+          <p class="xp-note"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex:none"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            <span>XP is farmed in the background. <b>You don't pick the streamer</b> — each account auto-watches whichever channel you follow is live. The card shows exactly which one.</span></p>
+          <div class="xp-actions">
+            <button class="btn xp-all" onclick="xpAll('start')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Start all</button>
+            <button class="btn xp-all" onclick="xpAll('stop')"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Stop all</button>
+            <button class="btn btn-pri" onclick="openAdd()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Add account</button>
+          </div>
+        </div>
+        <div class="xpgrid" id="xpgrid"></div>
+      </section>
       <section class="view" id="view-points"><div class="soon-box"><div class="e-ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div><h3>Points Overview</h3><p>Your points balance ranking across all follows (dashboard.py) will live here, with charts and history.</p></div></section>
       <section class="view" id="view-follows">
         <div class="bar"><h2>Points by channel</h2><span class="count" id="fl-count">—</span><div class="sp"></div>
@@ -413,7 +446,7 @@ details.adv[open] summary::before{content:"▾ "}
 const app=document.getElementById('app');
 let DATA={accounts:[],totals:{},config:{},system:null,events:[]}, byId={}, loaded=false;
 let fStatus='all', bulkMode=false, selected=new Set();
-const TOOLS={launcher:{poll:loadState,interval:3500},xp:{poll:null},points:{poll:null},follows:{poll:enterFollows},settings:{poll:renderCfg}};
+const TOOLS={launcher:{poll:loadState,interval:3500},xp:{poll:loadXp,interval:4000},points:{poll:null},follows:{poll:enterFollows},settings:{poll:renderCfg}};
 let curView='launcher', pollTimer=null;
 
 async function api(p,body){const o={method:body?'POST':'GET'};if(body){o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(body);}
@@ -525,7 +558,8 @@ function sortAccs(accs){
 function render(){
   document.getElementById('acc-count').textContent=DATA.accounts.length;
   renderChips();
-  if(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('.grid'))return;
+  const _ae=document.activeElement;  // ne saute le re-render que si on tape dans un champ (input slug), pas sur un clic bouton (toggle/delete)
+  if(_ae&&_ae.tagName==='INPUT'&&_ae.closest&&_ae.closest('.grid'))return;
   const g=document.getElementById('grid');
   if(!loaded){g.innerHTML=Array(4).fill('<div class="skel"></div>').join('');return;}
   if(!DATA.accounts.length){g.innerHTML=`<div class="empty"><div class="e-ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></div><h3>No accounts</h3><p>Add your first Kick account to start farming.</p><button class="btn btn-pri" style="margin:0 auto" onclick="openAdd()">+ Add account</button></div>`;return;}
@@ -619,6 +653,54 @@ function renderFollows(r){
 
 /* ── Actions (+ undo on non-destructive ones) ── */
 async function ctl(action){await api('/api/control',{action});toast(action==='start_all'?'All accounts started':'All accounts stopped');loadState();}
+let xpData=null;
+function fmtMins(m){if(m==null||m==='?')return'–';m=Math.max(0,m|0);const h=m/60|0,mm=m%60;return h?`${h}h ${mm}m`:`${mm}m`;}
+const TV='<svg class="tv" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m22 8-6 4 6 4V8z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>';
+function xpStat(r){
+  if(!r.running)return r.on?['queue','Starting…']:['idle','Off'];
+  const s=(r.status&&r.status.state)||'';
+  if(s==='watching')return['run','● Live'];
+  if(s==='offline')return['nochan','No live now'];
+  if(s==='error')return['broken','Token expired'];
+  return['queue','Searching…'];
+}
+function xpCard(r){
+  const st=r.status||{},[cls,lbl]=xpStat(r);
+  const watching=r.running&&st.state==='watching'&&st.stream;
+  const big=watching
+    ? `<div class="xp-stream">${TV}<a class="slug" href="https://kick.com/${esc(st.stream)}" title="${esc(st.stream)}">${esc(st.stream)}</a></div>
+       <div class="xp-sub">${fmt(st.viewers)} viewers · auto-selected</div>`
+    : `<div class="xp-stream off">${TV}<span class="slug">${r.running?(st.state==='offline'?'No live stream':'Finding a stream…'):'Idle'}</span></div>
+       <div class="xp-sub">${r.running?'farmer is looking for a live channel':'press start to farm XP'}</div>`;
+  const lvl=st.level!=null?('L'+st.level):'–';
+  const rate=st.xp_per_min!=null?st.xp_per_min:'–';
+  const eta=fmtMins(st.eta_min);
+  return `<div class="card xpcard ${r.running?'run':''}" data-id="${esc(r.id)}">
+    <div class="c-head">${avatar(r)}
+      <div style="min-width:0"><div class="nm" title="${esc(r.label)}">${esc(r.label)}</div></div>
+      <div class="c-menu"><span class="pill ${cls}"><span class="d"></span>${lbl}</span></div></div>
+    <div class="xp-body">${big}</div>
+    <div class="xp-stats">
+      <div><div class="cap">Level</div><div class="v">${lvl}</div></div>
+      <div><div class="cap">XP / min</div><div class="v">${rate}</div></div>
+      <div><div class="cap">Next level</div><div class="v">${eta}</div></div></div>
+    <button class="xp-btn ${r.on?'on':''}" onclick="xpToggle('${esc(r.id)}',${r.on?0:1})">
+      ${r.on
+        ?'<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Stop'
+        :'<svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Start farming'}</button>
+  </div>`;
+}
+function renderXp(){
+  const g=document.getElementById('xpgrid');if(!g)return;
+  const xp=xpData;
+  if(!xp){g.innerHTML=Array(2).fill('<div class="skel"></div>').join('');return;}
+  if(!xp.accounts.length){g.innerHTML=`<div class="empty"><div class="e-ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></div><h3>No accounts yet</h3><p>Add a Kick account to start farming XP.</p><button class="btn btn-pri" style="margin:0 auto" onclick="openAdd()">+ Add account</button></div>`;return;}
+  g.innerHTML=xp.accounts.map(xpCard).join('');
+}
+async function loadXp(){const s=await api('/api/state');if(s&&s.xp){xpData=s.xp;renderXp();}}
+async function xpToggle(id,on){xpData&&xpData.accounts.forEach(a=>{if(a.id===id)a.on=!!on;});renderXp();
+  await api('/api/xp',{id,action:on?'start':'stop'});loadXp();}
+async function xpAll(action){await api('/api/xp',{action:action+'_all'});toast(action==='start'?'XP started on all accounts':'XP stopped on all accounts');loadXp();}
 async function setCh(id,ch){const r=await api('/api/account/update',{id,channel:(ch||'').trim().toLowerCase()});if(r&&r.error)toast(r.error,'err');else toast('Channel updated');loadState();}
 async function toggle(id,en){await api('/api/account/update',{id,enabled:en});
   toast('Account '+(en?'enabled':'disabled'),null,()=>{api('/api/account/update',{id,enabled:!en}).then(loadState);});loadState();}

@@ -20,7 +20,12 @@ def load_config():
         return json.load(f)
 
 CFG = load_config()
-BEARER = urllib.parse.unquote(CFG["session_token"])
+# Token: env XP_BEARER (multi-compte, passe par le launcher) sinon config.json (standalone).
+_TOKEN = os.environ.get("XP_BEARER") or CFG.get("session_token", "")
+if not _TOKEN or "VOTRE" in _TOKEN or "TON" in _TOKEN:
+    print("[ERROR] No XP token (env XP_BEARER or config.json session_token).")
+    sys.exit(1)
+BEARER = urllib.parse.unquote(_TOKEN)
 
 # Fallback slugs si followed-page ne donne rien. Ordre de priorite :
 #   1. "slug_pool" dans config.json
@@ -53,7 +58,23 @@ PUSHER_KEY  = "32cbd69e4b950bf97679"
 PUSHER_WS   = f"wss://ws-us2.pusher.com/app/{PUSHER_KEY}?protocol=7&client=js&version=8.5.0&flash=false"
 XP_INTERVAL = CFG.get("xp_poll_interval", 120)   # secondes entre polls XP
 PING_INTERVAL = 30                                 # ping Pusher
-LOG_FILE    = CFG.get("log_file", "farmer.log")
+LOG_FILE    = os.environ.get("XP_LOG_FILE") or CFG.get("log_file", "farmer.log")
+
+# Statut structuré (lu par le launcher pour l'UI). Absent en standalone (lancer.bat).
+STATUS_FILE = os.environ.get("XP_STATUS_FILE")
+_status = {}
+def write_status(**kw):
+    if not STATUS_FILE:
+        return
+    _status.update(kw)
+    _status["ts"] = time.time()
+    try:
+        tmp = STATUS_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(_status, f)
+        os.replace(tmp, STATUS_FILE)
+    except Exception:
+        pass
 
 # ── Logging ───────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -211,12 +232,16 @@ class Farmer:
                 self.total_xp_gained += tick
                 last_xp = prog
 
+                write_status(level=level, progress_xp=prog, to_next=to_next,
+                             since_start=since_start, xp_per_min=round(rate, 1),
+                             eta_min=eta_min)
                 log.info(
                     f"+{tick} XP  |  {to_next} XP restants  |  "
                     f"~{eta_min} min  (L{level} -> L{level+1 if isinstance(level,int) else '?'}  "
                     f"|  +{since_start} total  |  {rate:.1f} XP/min)"
                 )
             else:
+                write_status(state="error")
                 log.warning(f"[XP #{poll_n}] Pas de donnees (token expire?)")
 
     # ── Pusher ─────────────────────────────────────────────────────────
@@ -293,6 +318,7 @@ class Farmer:
         current_slug = self.stream.get("slug") if self.stream else None
         new_stream = find_live_stream(exclude_slug=current_slug)
         if new_stream:
+            write_status(state="watching", stream=new_stream["slug"], viewers=new_stream.get("viewers", 0))
             log.info(f"Nouveau stream: {new_stream['slug']} (id={new_stream['id']})")
             self.stream = new_stream
             # Ferme WS actuel et reconnecte
@@ -322,6 +348,7 @@ class Farmer:
             to_next = lvl.get("xp_to_next_level", 0)
             total = self.start_xp + to_next
             pct = round(self.start_xp / total * 100, 1) if total else 0
+            write_status(state="starting", level=level, progress_xp=self.start_xp, to_next=to_next)
             log.info(f"Niveau initial: L{level} | {self.start_xp}/{total} XP ({pct}%) | {to_next} XP restants")
         else:
             log.error("Impossible de recuperer le niveau. Verifie config.json (session_token).")
@@ -335,12 +362,15 @@ class Farmer:
         while self.running:
             # Trouve un stream live
             log.info("Recherche stream live...")
+            write_status(state="searching", stream=None, viewers=None)
             self.stream = find_live_stream()
             if not self.stream:
+                write_status(state="offline")
                 log.warning("Aucun stream live. Retry dans 5 min.")
                 time.sleep(300)
                 continue
 
+            write_status(state="watching", stream=self.stream["slug"], viewers=self.stream.get("viewers", 0))
             log.info(f"Stream: {self.stream['slug']} (id={self.stream['id']}, {self.stream['viewers']} viewers)")
 
             # Visite la page pour simuler presence
