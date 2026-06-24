@@ -210,6 +210,43 @@ reading `session_token` from `config.json` — unchanged from the original tool.
 
 ---
 
+## Research notes — what actually credits Channel Points
+
+A small empirical campaign (network capture + controlled A/B tests with a positive control on a
+live channel) to find the **minimum** needed to accrue points. Method: per `(account, channel)`
+attribution, 20–45 min windows, a concurrent real-playback control to validate each window.
+
+**Architecture.** Kick delivers video via **Amazon IVS** (`*.live-video.net`, `amazon-ivs-wasmworker`)
+with **Mux Data** (`*.litix.io`) analytics. During playback there is **no recurring Kick-native
+heartbeat** — every `*.kick.com` watch/session call fires once at load. The only recurring traffic
+is third-party telemetry: IVS `POST /v1/segment/<session>` (~5 s) and Mux `POST litix.io` (~10 s).
+
+**H1 — pure heartbeat / no browser → REFUTED.** Replaying the session from plain Python
+(`GET /api/v1/channels/{slug}` → `playback_url`, then pulling HLS segments) credited **0 points**
+while a real-playback control rose. Forging the playback registration returns **404**, and the IVS
+telemetry token is minted by the player's WASM — account attribution requires the real IVS player
+session, which is not forgeable outside the browser.
+
+**H2 — faked player, no decode → PROVEN.** A real Chrome with `HTMLMediaElement` and MSE
+`appendBuffer` stubbed (the element reports *playing / unmuted* but **zero bytes are decoded**)
+credited points **identically to real playback** (+10 @138 s, +10 @490 s, control +10 in the same
+window). **Conclusion: the points gate reads the player's *reported* state, not decoded frames —
+video decoding is unnecessary.** Removing decode alone is a modest CPU win headless/low-res
+(browser + player JS + segment fetch dominate); the real scaling lever is no-decode **combined**
+with one shared browser hosting N account contexts, blocking chat/images, and lowest quality.
+
+**Lightpanda** ([lightpanda-io/browser](https://github.com/lightpanda-io/browser)) — a Zig
+headless browser with no rendering/media engine. Tested against Kick's anti-bot: on **read-only GET
+API** it is **not blocked** (returns real JSON where plain `curl` gets `403`), so it is fine and
+extremely light for *scraping*. But it is **unusable for farming**: its JS/WASM environment is
+incomplete so the **Kasada** challenge crashes, and it has **no media engine** (cannot play video →
+cannot credit points). A real Chrome remains required for farming.
+
+> These notes describe how the reward mechanism works for interoperability/research. They do not
+> change the project's stance: automating points may breach Kick's ToS — see the disclaimer.
+
+---
+
 ## Security
 
 - Dashboard binds to `127.0.0.1` only and rejects cross-site POSTs (Origin check).
