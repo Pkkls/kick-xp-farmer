@@ -311,6 +311,8 @@ details.adv[open] summary::before{content:"▾ "}
         <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg></span><span>Launcher</span></a>
       <a href="#xp" data-view="xp" data-title="XP Farmer" data-sub="Idle global XP farming">
         <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg></span><span>XP Farmer</span></a>
+      <a href="#drops" data-view="drops" data-title="Drops Miner" data-sub="Auto-watch campaigns to claim Kick drops">
+        <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2s6 6 6 11a6 6 0 0 1-12 0c0-5 6-11 6-11z"/></svg></span><span>Drops</span></a>
       <a href="#points" class="soon" data-view="points" data-title="Points Overview" data-sub="Points balance across all your follows">
         <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></span><span>Points</span></a>
       <a href="#follows" data-view="follows" data-title="Follows" data-sub="Channel points across your follows">
@@ -375,6 +377,38 @@ details.adv[open] summary::before{content:"▾ "}
           </div>
         </div>
         <div class="xpgrid" id="xpgrid"></div>
+      </section>
+      <section class="view" id="view-drops">
+        <style>
+          .dr-table{width:100%;border-collapse:collapse;font-size:13px}
+          .dr-table th{color:var(--txt3);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;padding:8px 12px;border-bottom:1px solid var(--line,#2a2f3a)}
+          .dr-table td{padding:9px 12px;border-bottom:1px solid var(--line,#23272f)}
+          .dr-table tbody tr:hover{background:rgba(255,255,255,.03)}
+          .dr-badge{font-size:10px;font-weight:700;color:#fff;border-radius:6px;padding:4px 10px;white-space:nowrap}
+          #view-drops details summary::-webkit-details-marker{display:none}
+        </style>
+        <p class="tos" style="margin:0 0 16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+          <span><b>One stream at a time.</b> Kick credits drops for a single watched channel; the miner rotates through your queue and switches off offline channels automatically. Chrome runs locally.</span></p>
+        <div class="bar">
+          <h2>Queue</h2><span class="count" id="dr-count">0</span>
+          <span id="dr-status" class="hint" style="color:var(--txt3)"></span>
+          <div class="sp"></div>
+          <span id="dr-user" class="hint" style="color:var(--txt3)"></span>
+          <button class="btn xp-all" onclick="drStart()"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Start all</button>
+          <button class="btn xp-all" onclick="drStop()"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>Stop all</button>
+          <button class="btn btn-ghost" onclick="drClear()">Clear</button>
+        </div>
+        <div class="panel" style="margin-bottom:18px">
+          <div id="dr-settings" class="chips" style="flex-wrap:wrap;gap:14px"></div>
+        </div>
+        <div id="dr-queue"></div>
+        <div class="bar" style="margin-top:26px">
+          <h2>Campaigns</h2><span class="count" id="dr-camp-count">—</span>
+          <div class="sp"></div>
+          <button class="btn btn-ghost" id="dr-refresh" onclick="drCampaigns(true)">Refresh</button>
+        </div>
+        <p class="hint" style="margin:-8px 0 14px;color:var(--txt3)">Active drop campaigns. Add a channel to the queue, or add every channel of a campaign at once.</p>
+        <div id="dr-campaigns"></div>
       </section>
       <section class="view" id="view-points"><div class="soon-box"><div class="e-ic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div><h3>Points Overview</h3><p>Your points balance ranking across all follows (dashboard.py) will live here, with charts and history.</p></div></section>
       <section class="view" id="view-follows">
@@ -446,7 +480,7 @@ details.adv[open] summary::before{content:"▾ "}
 const app=document.getElementById('app');
 let DATA={accounts:[],totals:{},config:{},system:null,events:[]}, byId={}, loaded=false;
 let fStatus='all', bulkMode=false, selected=new Set();
-const TOOLS={launcher:{poll:loadState,interval:3500},xp:{poll:loadXp,interval:4000},points:{poll:null},follows:{poll:enterFollows},settings:{poll:renderCfg}};
+const TOOLS={launcher:{poll:loadState,interval:3500},xp:{poll:loadXp,interval:4000},drops:{poll:loadDrops,interval:3000},points:{poll:null},follows:{poll:enterFollows},settings:{poll:renderCfg}};
 let curView='launcher', pollTimer=null;
 
 async function api(p,body){const o={method:body?'POST':'GET'};if(body){o.headers={'Content-Type':'application/json'};o.body=JSON.stringify(body);}
@@ -803,6 +837,157 @@ async function loadState(){const s=await api('/api/state');if(!s||!s.accounts)re
   if(document.getElementById('feed').classList.contains('open'))renderFeed();
   renderKpis();render();
 }
+/* ── Drops Miner ── */
+let DR_STATE={items:[]}, DR_CAMPS=[], drCampsLoaded=false;
+const DR_PHASE={live:['#53fc18','live'],paused:['#f5a623','paused'],finished:['#888','done'],retry:['#e2574c','retry'],idle:['#666','idle']};
+
+async function loadDrops(){
+  const s=await api('/api/drops/state');
+  if(!s||s.error){document.getElementById('dr-status').textContent=s&&s.error?('drops: '+s.error):'';return;}
+  DR_STATE=s;
+  document.getElementById('dr-count').textContent=s.items.length;
+  document.getElementById('dr-status').textContent=s.status||'';
+  document.getElementById('dr-user').textContent=s.username?('@'+s.username):'';
+  drRenderSettings(s.settings||{});
+  drRenderQueue(s.items);
+  if(!drCampsLoaded){drCampsLoaded=true;drCampaigns(false);}
+  else if(DR_CAMPS.length)drRenderCampaigns();
+}
+
+function drRenderSettings(cfg){
+  const opts=[['mute','Mute'],['hide_player','Hide player'],['mini_player','Mini player'],['force_160p','Force 160p'],['auto_start','Auto-start']];
+  document.getElementById('dr-settings').innerHTML=opts.map(([k,l])=>
+    `<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--txt2)">
+      <input type="checkbox" data-k="${k}" ${cfg[k]?'checked':''} onchange="drSetting('${k}',this.checked)">${l}</label>`).join('');
+}
+
+function drStatusCell(it){
+  // running -> phase; otherwise live True/False/None
+  if(it.running){const [c,l]=DR_PHASE[it.phase]||DR_PHASE.live;return `<span style="color:${c}">● ${l.toUpperCase()}</span>`;}
+  if(it.live===true) return '<span style="color:#53fc18">● LIVE</span>';
+  if(it.live===false) return '<span style="color:#888">● OFFLINE</span>';
+  return '<span style="color:#666">? UNKNOWN</span>';
+}
+function drRenderQueue(items){
+  const g=document.getElementById('dr-queue');
+  if(!items.length){g.innerHTML='<p class="hint" style="color:var(--txt3)">Queue empty. Add channels from a campaign below.</p>';return;}
+  const rows=items.map(it=>{
+    const target=it.is_global_drop?(it.minutes+' (global)'):it.minutes;
+    return `<tr>
+      <td style="white-space:nowrap;font-weight:700;font-size:12px">${drStatusCell(it)}</td>
+      <td><a href="${esc(it.url)}" target="_blank" rel="noreferrer" style="color:var(--accent-soft)">${esc(it.url)}</a>
+        ${it.display&&it.running?`<span class="hint" style="color:var(--txt3);margin-left:8px">${esc(it.display)}</span>`:''}</td>
+      <td style="text-align:right;font-variant-numeric:tabular-nums">${esc(String(target))}</td>
+      <td style="text-align:right;white-space:nowrap">
+        ${it.running?`<button class="btn btn-ghost" onclick="drStopIdx(${it.idx})">Stop</button>`
+                    :`<button class="btn btn-ghost" onclick="drStartIdx(${it.idx})">Start</button>`}
+        <button class="btn btn-ghost dgr" onclick="drRemove('${esc(it.url)}')">Remove</button></td>
+    </tr>`;
+  }).join('');
+  g.innerHTML=`<table class="dr-table"><thead><tr>
+    <th style="text-align:left;width:120px">Status</th><th style="text-align:left">URL</th>
+    <th style="text-align:right;width:90px">Target (min)</th><th style="width:170px"></th></tr></thead>
+    <tbody>${rows}</tbody></table>`;
+}
+
+async function drSetting(k,v){await api('/api/drops/setting',{key:k,value:v});}
+async function drStart(){await api('/api/drops/start',{all:true});loadDrops();}
+async function drStop(){await api('/api/drops/stop',{all:true});loadDrops();}
+async function drStartIdx(i){await api('/api/drops/start',{idx:i});loadDrops();}
+async function drStopIdx(i){await api('/api/drops/stop',{idx:i});loadDrops();}
+async function drRemove(url){await api('/api/drops/remove',{url});loadDrops();}
+async function drClear(){if(!confirm('Clear the whole drops queue?'))return;await api('/api/drops/clear');loadDrops();}
+
+async function drCampaigns(refresh){
+  document.getElementById('dr-camp-count').textContent='loading…';
+  const r=await api('/api/drops/campaigns'+(refresh?'?refresh=1':''));
+  DR_CAMPS=drMerge((r&&r.campaigns)||[], (r&&r.progress)||[]);
+  document.getElementById('dr-camp-count').textContent=r&&r.loading?'loading…':DR_CAMPS.length;
+  drRenderCampaigns();
+  if(r&&r.loading)setTimeout(()=>{if(curView==='drops')drCampaigns(false);},2500);
+}
+
+function drMerge(campaigns,progress){
+  const byId={};progress.forEach(p=>{if(p&&p.id)byId[p.id]=p;});
+  campaigns.forEach(c=>{
+    const p=byId[c.id];
+    c.progress_status=p?(p.status||'not_started'):'not_started';
+    c.progress_units=p?(p.progress_units||0):0;
+    const rp={};(p&&p.rewards||[]).forEach(r=>{if(r.id)rp[r.id]=r;});
+    (c.rewards||[]).forEach(r=>{const m=rp[r.id]||{};r.progress=m.progress||0;r.claimed=!!m.claimed;});
+  });
+  return campaigns;
+}
+
+function drRewardImg(r){
+  let u=r.image_url||'';if(u&&!u.startsWith('http'))u='https://ext.cdn.kick.com/'+u;
+  if(!u)return '';
+  const col=r.claimed?'#10b981':(r.progress>0?'#f59e0b':'var(--line,#374151)');
+  const tip=`${esc(r.name||'Reward')} · ${r.required_units||0} min${r.claimed?' · CLAIMED':(r.progress>0?' · '+Math.round(r.progress*100)+'%':'')}`;
+  return `<div title="${tip}" style="position:relative;width:54px;height:54px;border:2px solid ${col};border-radius:8px;overflow:hidden;flex:none;background:#0f172a">
+    <img src="${esc(u)}" referrerpolicy="no-referrer" onerror="this.style.display='none'" style="width:100%;height:100%;object-fit:cover">
+    ${r.claimed?'<span style="position:absolute;top:1px;right:3px;color:#10b981;font-weight:700">✓</span>':''}</div>`;
+}
+
+function drBadge(c){
+  const s=c.progress_status;
+  if(s==='in progress')return '<span class="dr-badge" style="background:#d97706">IN PROGRESS</span>';
+  if(s==='claimed')return '<span class="dr-badge" style="background:#059669">CLAIMED</span>';
+  const act=c.status==='active';
+  return `<span class="dr-badge" style="background:${act?'#059669':'#4b5563'}">${esc((c.status||'unknown').toUpperCase())}</span>`;
+}
+
+function drRenderCampaigns(){
+  const queued=new Set((DR_STATE.items||[]).map(i=>i.url));
+  const box=document.getElementById('dr-campaigns');
+  if(!DR_CAMPS.length){box.innerHTML='<p class="hint" style="color:var(--txt3)">No active campaigns (or not logged in — open the Launcher and connect an account first).</p>';return;}
+  const groups={};DR_CAMPS.forEach((c,ci)=>{const g=c.game||'Unknown Game';(groups[g]=groups[g]||[]).push(ci);});
+  box.innerHTML=Object.keys(groups).map(game=>{
+    const cards=groups[game].map(ci=>{
+      const c=DR_CAMPS[ci],chans=(c.channels||[]);
+      const allAdded=chans.length&&chans.every(ch=>queued.has(ch.url));
+      const rewards=(c.rewards||[]).slice(0,6).map(drRewardImg).join('');
+      const rows=chans.map(ch=>{
+        const inq=queued.has(ch.url);
+        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+          <span style="flex:1;overflow:hidden;text-overflow:ellipsis">${inq?'<span style="color:#10b981">✓ </span>':''}${esc(ch.username||ch.slug)}</span>
+          ${inq?`<button class="btn btn-ghost dgr" onclick="drRemoveCh('${esc(ch.url)}')">Remove</button>`
+                :`<button class="btn btn-ghost" onclick="drAddCh('${esc(ch.url)}',${ci})">Add</button>`}</div>`;
+      }).join('');
+      let chooseBtn;
+      if(chans.length) chooseBtn=`<button class="btn ${allAdded?'btn-ghost dgr':'xp-all'}" onclick="drChoose(${ci},${allAdded})">${allAdded?'Remove all':'Add all ('+chans.length+')'}</button>`;
+      else if(c.category_id) chooseBtn=`<button class="btn xp-all" onclick="drFind(${ci})">Find streamers</button>`;
+      else chooseBtn='';
+      return `<div class="panel" style="margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+          <b style="flex:1;min-width:160px">${esc(c.name)}</b>
+          ${drBadge(c)}
+          ${chooseBtn}
+          <button class="btn btn-ghost dgr" onclick="drRemoveCampaign('${esc(c.id)}')">Remove Campaign</button>
+        </div>
+        ${rewards?`<div style="display:flex;align-items:center;gap:8px;background:var(--panel2,#111827);border-radius:8px;padding:10px;margin-bottom:10px"><b style="color:#a78bfa;font-size:12px">🎁 Rewards</b><div style="display:flex;gap:6px;flex-wrap:wrap">${rewards}</div></div>`:''}
+        ${rows||'<p class="hint" style="color:var(--txt3)">No channels listed.</p>'}</div>`;
+    }).join('');
+    return `<details open style="margin-bottom:14px"><summary style="cursor:pointer;padding:10px 14px;background:#1e3a5f;border-radius:8px;font-weight:700;list-style:none">▾ ${esc(game)} <span class="count" style="float:right">${groups[game].length} campaigns</span></summary>
+      <div style="padding-top:12px">${cards}</div></details>`;
+  }).join('');
+}
+
+async function drAddCh(url,ci){await api('/api/drops/channel',{action:'add',url,campaign:DR_CAMPS[ci]});loadDrops();}
+async function drRemoveCh(url){await api('/api/drops/channel',{action:'remove',url});loadDrops();}
+async function drChoose(ci,allAdded){
+  if(allAdded)await api('/api/drops/campaign_remove',{campaign_id:DR_CAMPS[ci].id});
+  else{const r=await api('/api/drops/campaign_all',{campaign:DR_CAMPS[ci]});toast('Added '+(r.added||0)+' channels');}
+  loadDrops();
+}
+async function drFind(ci){
+  toast('Searching live streamers…');
+  const r=await api('/api/drops/find_and_add',{campaign:DR_CAMPS[ci]});
+  toast(r&&r.ok?('Added '+(r.added||0)+' of '+(r.found||0)+' live streamers'):'No streamers found',r&&r.ok?null:'err');
+  loadDrops();
+}
+async function drRemoveCampaign(id){await api('/api/drops/campaign_remove',{campaign_id:id});loadDrops();}
+
 try{if(localStorage.getItem('density')==='compact')setDensity('compact');}catch(e){}
 setView('launcher');
 </script>

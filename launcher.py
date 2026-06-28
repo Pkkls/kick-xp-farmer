@@ -638,6 +638,16 @@ def _follows_fetch(account):
 # ── Dashboard ──────────────────────────────────────────────────────────────
 PAGE = open(os.path.join(HERE, "dashboard.html"), encoding="utf-8").read()
 
+# Drops Miner (Selenium core lives in drops/, self-contained on its own sys.path).
+DROPS_DIR = os.path.join(HERE, "drops")
+if DROPS_DIR not in sys.path:
+    sys.path.insert(0, DROPS_DIR)
+try:
+    from manager import MANAGER as DROPS
+except Exception as _drops_err:
+    DROPS = None
+    print("Drops module unavailable:", _drops_err)
+
 
 class H(BaseHTTPRequestHandler):
     def _send(self, code, body, ctype="application/json"):
@@ -686,6 +696,20 @@ class H(BaseHTTPRequestHandler):
                                      "progress": [0, 0], "ts": time.time()}
                     threading.Thread(target=_follows_fetch, args=(a,), daemon=True).start()
             return self._send(200, json.dumps(_follows.get(aid, {"status": "loading"})))
+        if self.path.startswith("/api/drops/"):
+            if DROPS is None:
+                return self._send(503, json.dumps({"error": "drops unavailable"}))
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+            route = urllib.parse.urlparse(self.path).path
+            if route == "/api/drops/state":
+                return self._send(200, json.dumps(DROPS.state()))
+            if route == "/api/drops/campaigns":
+                refresh = qs.get("refresh", [""])[0] == "1"
+                return self._send(200, json.dumps(DROPS.get_campaigns(refresh=refresh)))
+            if route == "/api/drops/streamers":
+                cid = qs.get("cid", [""])[0]
+                lim = int(qs.get("limit", ["24"])[0] or 24)
+                return self._send(200, json.dumps(DROPS.find_streamers(cid, limit=lim)))
         self._send(404, "{}")
 
     def do_POST(self):
@@ -759,6 +783,63 @@ class H(BaseHTTPRequestHandler):
                     return self._send(400, json.dumps({"error": "id required"}))
                 _xp_set(aid, action == "start")
             return self._send(200, json.dumps({"ok": True}))
+        if self.path.startswith("/api/drops/"):
+            if DROPS is None:
+                return self._send(503, json.dumps({"error": "drops unavailable"}))
+            route = self.path
+            if route == "/api/drops/add":
+                ok = DROPS.add_item(
+                    (body.get("url") or "").strip(),
+                    body.get("minutes", 120),
+                    is_global_drop=bool(body.get("is_global_drop")),
+                )
+                return self._send(200, json.dumps({"ok": ok}))
+            if route == "/api/drops/remove":
+                if body.get("url"):
+                    ok = DROPS.remove_by_url(body["url"])
+                else:
+                    ok = DROPS.remove_item(int(body.get("idx", -1)))
+                return self._send(200, json.dumps({"ok": ok}))
+            if route == "/api/drops/clear":
+                return self._send(200, json.dumps({"ok": DROPS.clear_items()}))
+            if route == "/api/drops/start":
+                if body.get("all"):
+                    DROPS.start_all()
+                else:
+                    DROPS.start_index(int(body.get("idx", -1)))
+                return self._send(200, json.dumps({"ok": True}))
+            if route == "/api/drops/stop":
+                if body.get("all"):
+                    DROPS.stop_all()
+                else:
+                    DROPS.stop_index(int(body.get("idx", -1)))
+                return self._send(200, json.dumps({"ok": True}))
+            if route == "/api/drops/channel":
+                action = body.get("action")
+                if action == "add":
+                    ok = DROPS.add_channel(body.get("url"), body.get("minutes", 120),
+                                           body.get("campaign"), bool(body.get("is_global_drop")))
+                elif action == "remove":
+                    ok = DROPS.remove_by_url(body.get("url"))
+                else:
+                    ok = False
+                return self._send(200, json.dumps({"ok": ok}))
+            if route == "/api/drops/campaign_all":
+                n = DROPS.add_all_campaign_channels(body.get("campaign", {}),
+                                                    body.get("minutes", 120),
+                                                    bool(body.get("is_global_drop")))
+                return self._send(200, json.dumps({"ok": True, "added": n}))
+            if route == "/api/drops/campaign_remove":
+                n = DROPS.remove_campaign_channels(body.get("campaign_id"))
+                return self._send(200, json.dumps({"ok": True, "removed": n}))
+            if route == "/api/drops/find_and_add":
+                r = DROPS.find_and_add(body.get("campaign", {}),
+                                       body.get("minutes", 120),
+                                       int(body.get("limit", 24)))
+                return self._send(200, json.dumps(r))
+            if route == "/api/drops/setting":
+                ok = DROPS.set_setting(body.get("key"), body.get("value"))
+                return self._send(200, json.dumps({"ok": ok}))
         self._send(404, "{}")
 
     def log_message(self, *a):
@@ -768,6 +849,8 @@ class H(BaseHTTPRequestHandler):
 def main():
     threading.Thread(target=supervisor, daemon=True).start()
     threading.Thread(target=poll_points, daemon=True).start()
+    if DROPS is not None:
+        DROPS.start_monitor()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
     url = f"http://127.0.0.1:{PORT}"
     n = len(acc.load_accounts())

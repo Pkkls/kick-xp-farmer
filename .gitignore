@@ -11,3 +11,10 @@ __pycache__/
 .venv/
 venv/
 data/
+experiments/
+
+# Drops Miner — local-only runtime data (sessions, cookies, personal queue)
+drops/utils/cookies/
+drops/utils/chrome_data/
+drops/utils/config.json
+drops/chromedriver-win64/*.exe
